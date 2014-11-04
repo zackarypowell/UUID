@@ -1,0 +1,99 @@
+package com.safeguard.uniqueid;
+
+
+
+import android.os.Bundle;
+import android.view.Menu;
+import android.view.MenuItem;
+import android.view.View;
+import android.view.View.OnClickListener;
+import android.widget.Button;
+import android.widget.TextView;
+
+import java.math.BigInteger;
+
+import android.app.Activity;
+import android.content.Context;
+import android.provider.Settings.Secure;
+import android.util.Base64;
+import android.util.Log;
+
+public class MainActivity extends Activity {
+	private  Context context;
+	private  String androidIDhash; // base64 encoded hex
+	private  String last4AndroidID;
+	private static final String tag = "UniqueId";
+	
+	
+	@Override
+	protected void onCreate(Bundle savedInstanceState) {
+		super.onCreate(savedInstanceState);
+		setContentView(R.layout.activity_main);
+		context = this.getApplicationContext();
+		Button c = (Button) findViewById(R.id.btnAndroidID);
+		final TextView android = (TextView) findViewById(R.id.txtAndroidID);
+		Button b = (Button) findViewById(R.id.btnDisplayID);
+		final TextView unique = (TextView) findViewById(R.id.txtUniqueID);
+		c.setOnClickListener(new OnClickListener() {
+			
+			@Override
+			public void onClick(View v) {
+				// TODO display the Android ID on the device
+				Log.d(tag, "setAndroidIDhash was called");
+				androidIDhash = Secure.getString(context.getContentResolver(), Secure.ANDROID_ID);
+				Log.d(tag, "androidIDhash returning" + androidIDhash);
+				
+				android.setText(androidIDhash);
+				
+			}
+			
+		});
+		
+		
+		
+		b.setOnClickListener(new OnClickListener() {
+			
+			@Override
+			public void onClick(View v) {
+				// TODO display the Unique ID on the Android Device
+				Log.d(tag, "setLast4AndroidID was called");
+				Integer UUID = new BigInteger(Base64.decode(androidIDhash, 0)).intValue();
+				last4AndroidID = UUID.toString();
+				Log.d(tag, "last4AndroidID returning" + last4AndroidID);
+				last4AndroidID = last4AndroidID.substring(last4AndroidID.length() -4);
+				Log.d(tag, "setLast4AndroidID is returned " + last4AndroidID);
+				unique.setText(last4AndroidID);
+				
+			}
+			
+			
+			
+			
+			
+			
+		});
+		
+		
+	}
+
+	@Override
+	public boolean onCreateOptionsMenu(Menu menu) {
+		// Inflate the menu; this adds items to the action bar if it is present.
+		getMenuInflater().inflate(R.menu.main, menu);
+		return true;
+	}
+
+	@Override
+	public boolean onOptionsItemSelected(MenuItem item) {
+		// Handle action bar item clicks here. The action bar will
+		// automatically handle clicks on the Home/Up button, so long
+		// as you specify a parent activity in AndroidManifest.xml.
+		int id = item.getItemId();
+		if (id == R.id.action_settings) {
+			return true;
+		}
+		return super.onOptionsItemSelected(item);
+	
+		return false;
+		}
+}

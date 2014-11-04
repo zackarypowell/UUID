@@ -1,0 +1,61 @@
+package com.phmod.model;
+
+import java.util.*;
+import java.math.BigInteger;
+import java.text.SimpleDateFormat;
+
+import android.content.Context;
+import android.provider.Settings.Secure;
+import android.util.Base64;
+import android.util.Log;
+
+public class UniqueID {
+
+	private static Context context;
+	private static String androidIDhash; // base64 encoded hex
+	private static String last4AndroidID;
+	private static final String tag = "UniqueId";
+	
+
+	public UniqueID () {
+		setAndroidIDhash();
+		setLast4AndroidID();
+	}
+
+	private static String getmonthDay() {
+		
+		Log.d(tag, "getmonthDay was called");
+		Date dateNow = new Date();
+		SimpleDateFormat ft = new SimpleDateFormat("MMddyy");
+		Log.d(tag, "getmonthDay was returned");
+		return ft.format(dateNow);
+	}
+
+	private static long getUnixTime(Context context) {
+		Log.d(tag, "getUnixTime was returned");
+		return System.currentTimeMillis() / 1000;
+	}
+	
+	private void setAndroidIDhash() {
+		Log.d(tag, "setAndroidIDhash was called");
+		UniqueID.androidIDhash = Secure.getString(context.getContentResolver(), Secure.ANDROID_ID);
+		Log.d(tag, "androidIDhash returning" + UniqueID.androidIDhash);
+	}
+	
+	private void setLast4AndroidID() {
+		Log.d(tag, "setLast4AndroidID was called");
+		Integer UUID = new BigInteger(Base64.decode(UniqueID.androidIDhash, 0)).intValue();
+		UniqueID.last4AndroidID = last4AndroidID.toString();
+		Log.d(tag, "last4AndroidID returning" + UniqueID.last4AndroidID);
+		UniqueID.last4AndroidID = UniqueID.last4AndroidID.substring(UniqueID.last4AndroidID.length() -4);
+		Log.d(tag, "last4 of Android id is " + UniqueID.last4AndroidID);
+	}
+
+	public static String getUniqueID() {
+		Log.d(tag, "getUniqueID was called");
+		String result = getmonthDay() + UniqueID.last4AndroidID + getUnixTime(context);
+		Log.d(tag,"result was created" + result);
+		return result;
+	}
+	
+}

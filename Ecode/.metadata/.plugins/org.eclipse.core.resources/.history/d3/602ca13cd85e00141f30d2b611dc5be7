@@ -1,0 +1,5 @@
+package com.phmod.model;
+
+public class UniqueID {
+
+}

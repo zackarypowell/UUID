@@ -1,0 +1,712 @@
+package com.phmod.model;
+
+import java.io.File;
+import java.util.ArrayList;
+import java.util.Date;
+import android.content.ContentValues;
+import android.util.Log;
+import com.phmod.DialogFilter.LabelFilter;
+import com.phmod.database.DataController;
+import com.phmod.database.ResultSet;
+import com.phmod.model.Data.PHOTO_STATUS_ID;
+import com.phmod.model.UniqueID;
+
+public class Photo
+{
+	private static final String LCAT = "Phmod_PhotoModel";
+	//private static final int QUESTION_ROW_HUB = -42;
+	
+    private String  order_id;
+    private String  name;
+    private long   	question_row;
+    private String  label;
+    private String  description;
+    private PHOTO_STATUS_ID upload_status;
+    private String  user_id;
+    private String  photo_data;
+    private String  thumb_data;
+
+    private int 	orientation;
+    private boolean selected;
+    
+    public Photo(String aLabel)
+    {
+    	this.order_id = aLabel;
+    	this.name = "";
+    	this.label = aLabel;
+    	this.upload_status = Photo.getPhotoUploadStatus(aLabel);
+    	this.user_id = "";
+    	this.photo_data = "";
+    	this.thumb_data = "";
+    	this.orientation = 0;
+    	this.question_row = 0;
+    	this.selected = false;
+    }
+
+    public Photo()
+    {
+    	this.order_id = Data.NO_LABEL_NAME;
+    	this.name = "";
+    	this.label = Data.NO_LABEL_NAME;
+    	this.upload_status = Photo.getPhotoUploadStatus(this.label);
+    	this.user_id = "";
+    	this.photo_data = "";
+    	this.thumb_data = "";
+    	this.orientation = 0;
+    	this.question_row = 0;
+    	this.selected = false;
+    }
+    
+    public Photo(String aLabel, String filename, String photoPath, String thumbPath)
+    {
+    	this.order_id = aLabel;
+    	this.name = filename;
+    	this.label = aLabel;
+    	this.upload_status = Photo.getPhotoUploadStatus(this.label);
+    	this.user_id = "";
+    	this.photo_data = photoPath;
+    	this.thumb_data = thumbPath;
+    	this.orientation = 0;
+    	this.question_row = 0;
+    	this.selected = false;
+    }
+
+    // Public Getters/Setters
+    
+    public String getName()
+	{
+		return name;
+	}
+
+	public void setName(String name)
+	{
+		this.name = name;
+	}
+
+	public String getLabel()
+	{
+		return this.label;
+	}
+
+	public void setLabel(String label)
+	{
+		this.order_id = label;
+		this.label = label;
+	}
+
+	public boolean hasLabel()
+	{
+		return !Data.NO_LABEL_NAME.equals(this.label);
+	}
+
+	public String getDescription()
+	{
+		return this.description;
+	}
+
+	public void setDescription(String description)
+	{
+		this.description = description;
+	}
+
+	public void setPhoto_data(String photo_data)
+	{
+		this.photo_data = photo_data;
+	}
+
+	public void setThumb_data(String thumb_data)
+	{
+		this.thumb_data = thumb_data;
+	}
+
+	public int getOrientation()
+	{
+		return orientation;
+	}
+
+	public void setOrientation(int orientation)
+	{
+		this.orientation = orientation;
+	}
+
+    public boolean isSelected()
+	{
+		return selected;
+	}
+
+	public void setSelected(boolean selected)
+	{
+		this.selected = selected;
+	}
+
+	public PHOTO_STATUS_ID getUploadStatus()
+	{
+		return upload_status;
+	}
+
+	public void setUploadStatus(PHOTO_STATUS_ID upload_status)
+	{
+		this.upload_status = upload_status;
+	}
+
+	// Internal Methods
+
+    public static PHOTO_STATUS_ID getPhotoUploadStatus(String aLabel)
+    {
+    	//check if the photo's order has been submitted so its status can be set appropriately...
+    	PHOTO_STATUS_ID uploadStatus;
+        
+    	// make sure we have a label and a photo file
+    	if (Data.NO_LABEL_NAME.equals(aLabel))
+    	{
+    		uploadStatus = PHOTO_STATUS_ID.kStatusPhotoNotReady;
+    	}
+    	else
+    	{
+   			uploadStatus = PHOTO_STATUS_ID.kStatusPhotoReady;
+    	}
+    	return uploadStatus;
+    }
+
+    // Public Methods
+    
+    public void delete()
+    {
+        AppState.DebugLog(LCAT,"[Photo delete]"); 
+    	this.deleteFiles();
+    	this.deleteDatabaseEntry();
+    	return;
+    }
+
+	public boolean insertDatabaseEntry()
+    {
+        boolean rc = false;
+        
+        long uploadStatus = Photo.getPhotoUploadStatus(this.label).getValue();
+        
+        String sql = "INSERT INTO photos (order_id, name, label, description, upload_status, user_id, photo_data, thumb_data, required, question_row, question_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        
+        Date dt = new Date();
+        
+        Object[] args = {
+        	this.order_id, 
+        	this.name, 
+        	this.label, 
+        	this.label, 
+        	uploadStatus,
+        	this.user_id, 
+        	this.photo_data, 
+        	this.thumb_data, 
+        	0, 
+        	UniqueID.getUniqueID(),
+        	PhotoLabel.labelAsInt(this.label),
+        };
+        try
+        {
+            rc = AppState.getInstance().getDbController().executeInsert(sql, args) != -1;
+        }
+        catch (Exception e)
+        {
+            AppState.ErrorLog(LCAT, String.format("Caught exception in insertDatabaseEntry: %s", e.getMessage()));
+        }
+        finally
+        {
+            AppState.getInstance().getDbController().close();
+        }
+        return rc;
+    }
+    
+    public boolean updateDatabaseEntry()
+    {
+    	boolean rc = false;
+    	
+    	if (this.name != null)
+    	{
+    		Photo aPhoto = Photo.getPhoto(this.name, false);
+    		if (aPhoto == null)
+    			return this.insertDatabaseEntry();
+    		
+    		PHOTO_STATUS_ID uploadStatus = Photo.getPhotoUploadStatus(this.label);
+    		if (uploadStatus != PHOTO_STATUS_ID.kStatusPhotoQueued)
+    		{
+                //String sql = "UPDATE photos SET upload_status = ?, label = ?, description = ?, photo_data = ?, thumb_data = ?, required = ?, question_row = ? WHERE order_id = ? AND name = ? AND user_id = ?";
+    			
+                long status = uploadStatus.getValue();
+                ContentValues values = new ContentValues();
+                
+                values.put("upload_status", status);
+                values.put("label", label);
+                values.put("order_id", label);
+                values.put("description", label);
+                values.put("photo_data", photo_data);
+                values.put("thumb_data", thumb_data);
+                values.put("required", 0);
+                values.put("question_row", question_row);
+                values.put("question_id", PhotoLabel.labelAsInt(label));
+                
+                String[] whereArgs = {
+                	this.name 
+                };
+                try
+                {
+                    rc = AppState.getInstance().getDbController().executeUpdate("photos", values, "name = ?", whereArgs) != -1;
+                }
+                catch (Exception e)
+                {
+                	AppState.ErrorLog(LCAT, String.format("Caught exception in updateDatabaseEntry: %s", e.getMessage()));
+                }
+                finally
+                {
+                    AppState.getInstance().getDbController().close();
+                }
+    		}
+    		
+    	}
+    	return rc;
+    }
+    
+    public boolean deleteDatabaseEntry()
+    {
+        AppState.DebugLog(LCAT, "[Photo deleteDatabaseEntry]");
+    	boolean rc = false;
+    	
+    	if (this.name != null)
+    	{
+            //String sql = "DELETE FROM photos WHERE name = ?";
+    			
+            String[] whereArgs = {
+            	this.name 
+            };
+            try
+            {
+                Log.i(LCAT, "[Photo deleteDatabaseEntry] deleting entry:" + this.name);
+                rc = AppState.getInstance().getDbController().executeDelete("photos", "name = ?", whereArgs) != -1;
+            }
+            catch (Exception e)
+            {
+             	AppState.ErrorLog(LCAT, String.format("Caught exception in deleteDatabaseEntry: %s", e.getMessage()));
+            }
+            finally
+            {
+                AppState.getInstance().getDbController().close();
+            }
+    	}
+    	return rc;
+    }
+
+    public boolean queuePhotoForTransmit()
+    {
+    	boolean rc = false;
+    	
+    	if (this.name != null)
+    	{
+    		this.setUploadStatus(PHOTO_STATUS_ID.kStatusPhotoQueued);
+            long status = this.upload_status.getValue();
+            ContentValues values = new ContentValues();
+                
+            values.put("upload_status", status);
+                
+            String[] whereArgs = {
+            	this.name 
+            };
+            try
+            {
+                rc = AppState.getInstance().getDbController().executeUpdate("photos", values, "name = ?", whereArgs) != -1;
+            }
+            catch (Exception e)
+            {
+            	AppState.ErrorLog(LCAT, String.format("Caught exception in queuePhotoForTransmit: %s", e.getMessage()));
+            }
+            finally
+            {
+                AppState.getInstance().getDbController().close();
+            }    		
+    	}
+    	return rc;
+    }
+    
+    /** 
+     * Handles the actual deletion. 
+     * @param path the absolute path to delete.
+     */
+    private void delete(String path) {
+        File f = new File(path);
+        if (f.exists())
+        {
+            boolean result = f.delete();
+            Log.i(LCAT, "[Photo delete] deleting photo:" + f.getAbsolutePath() + " success? " + result);
+        } else {
+            Log.e(LCAT, "[Photo delete] Photo does not exist at path:" + f.getAbsolutePath());
+        }
+    }
+
+    /** Deletes all of the files associated with this photo. */
+    public void deleteFiles()
+	{
+        String phot = this.getPhotoPath();
+        String thumb = this.getThumbPath();
+        String ds = "_DateStamp";
+        delete(phot);
+        delete(thumb);
+
+        //legacy delete both sets of photos. This is checked as the new files do not contain _DateStamp.
+        if (phot.contains(ds)) {
+            delete(phot.replace(ds, ""));
+        }
+        if (thumb.contains(ds)) {
+            delete(thumb.replace(ds, ""));
+        }
+	}
+    
+    /**
+     * Determines if the path needs to be relative and builds the absolute path from it.
+     * <p>
+     * This checks the sdcard location first and if the file does not exist then the getExternalFilesDir(null) is checked. 
+     * </p>
+     * @param sdcard the {@link Data#getSDPath(android.content.Context)} location. 
+     * @param path the location to check.
+     * @return the absolute path for the file.
+     */
+    private String getRelative(String sdcard, String path) {
+        String result = null;
+        if (path.startsWith(sdcard)) {
+            AppState.DebugLog(LCAT, "[Photo getRelative] original path is absolute:" + sdcard);
+            return sdcard;
+        } else {
+            String ds = "_DateStamp.jpg";
+            if (!path.endsWith(ds)) {
+                path = path.substring(0, path.lastIndexOf('.')) + ds;
+            }
+            AppState.DebugLog(LCAT, "[Photo getRelative] original path is relative:" + sdcard);
+            if (sdcard.endsWith("/") && path.startsWith("/")) {
+                result = sdcard + path.substring(1);
+            } else if (sdcard.endsWith("/")) {
+                result = sdcard + path;
+            } else {
+                result = sdcard + "/" + path;
+            }
+        }
+        
+        // check that the file exists in the sdcard path. 
+        // If not then check relative to the getExternalFilesDir 
+        File file = new File(result);
+        if (!file.exists()) {
+            AppState.ErrorLog(LCAT, "[Photo getRelative] file not found:" + result);
+            String newPath = AppState.getInstance().getAppContext().getExternalFilesDir(null) + path;
+            file = new File(newPath);
+            if (file.exists()){
+                AppState.DebugLog(LCAT, "[Photo getRelative] file found at:" + newPath);
+                result = newPath;
+            } else {
+                AppState.DebugLog(LCAT, "[Photo getRelative] file still not found in:" + newPath);
+                result = path;
+            }
+        }
+        
+        AppState.DebugLog(LCAT, "[Photo getRelative] result:" + result);
+        return result;
+    }
+    
+    /** 
+     * Updates the relative path to an absolute path in the database.
+     * @param key either "photo_data" or "thumb_data" but is the column name to update in the database.
+     * @param value the value to set.
+     */
+    private void updateRelativePath(String key, String value) {
+        DataController dc = AppState.getInstance().getDbController(); 
+        try {
+            ContentValues values = new ContentValues();
+            values.put(key, value);
+            String[] whereArgs = { this.name };
+            dc.executeUpdate("photos", values, "name = ?", whereArgs);
+            long updateCount = dc.executeUpdate("photos", values, "name = ?", whereArgs);
+            if (updateCount != -1) {
+                AppState.ErrorLog(LCAT, "[Photo updateRelativePath] Updated " + updateCount + " records");
+            }
+        }
+        catch (Exception e) {
+            AppState.ErrorLog(LCAT, String.format("[Photo updateRelativePath] Caught exception: %s", e.getMessage()));
+        }
+        finally {
+            dc.close();
+        }
+    }
+
+    /**
+     * Get the absolute path to the full size photo.
+     * @return the path.
+     */
+    public String getPhotoPath()
+    {
+        String sdcard = Data.getSDPath(AppState.getInstance().getAppContext());
+        if (this.photo_data.startsWith(sdcard)) {
+            AppState.DebugLog(LCAT, "[Photo getPhotoPath] original path is absolute:" + this.photo_data);
+        } else {
+            this.photo_data = getRelative(sdcard, this.photo_data);
+            updateRelativePath("photo_data", this.photo_data);
+        }
+        return this.photo_data;
+    }
+
+    /**
+     * Get the absolute path to the thumb nail size photo.
+     * @return the path.
+     */
+    public String getThumbPath()
+    {
+        String sdcard = Data.getSDPath(AppState.getInstance().getAppContext());
+        if (this.thumb_data.startsWith(sdcard)) {
+            AppState.DebugLog(LCAT, "[Photo getThumbPath] original path is absolute:" + this.thumb_data);
+        } else {
+            this.thumb_data = getRelative(sdcard, this.thumb_data);
+            updateRelativePath("thumb_data", this.thumb_data);
+        }
+        return this.thumb_data;
+    }
+
+    public static ArrayList<Photo> getPhotos(LabelFilter lf)
+    {
+    	AppState.DebugLog(LCAT, String.format("getPhotos(%s)", lf.name()));
+    	
+    	ArrayList<Photo> photoArray = new ArrayList<Photo>();
+    	try
+        {
+            String sql = "SELECT order_id, name, label, description, upload_status, user_id, photo_data, thumb_data, required, question_row, question_id FROM photos WHERE CAST(upload_status AS TEXT)  <> ?";
+            
+            switch (lf)
+            {
+        	case OLDEST:
+        		sql += " ORDER BY question_row ASC";
+        		break;
+        		
+        	case NEWEST:
+        		sql += " ORDER BY question_row DESC";
+        		break;
+
+        	case ASCENDING:
+        		sql += " ORDER BY CAST(question_id AS INTEGER) ASC";
+        		break;
+
+        	case DESCENDING:
+        		sql += " ORDER BY CAST(question_id AS INTEGER) DESC";
+        		break;
+            }
+            
+            Long uploadStatus = PHOTO_STATUS_ID.kStatusPhotoQueued.getValue(); 
+            String[] args = {
+            	uploadStatus.toString()
+            };
+            ResultSet rs = AppState.getInstance().getDbController().execute(sql, args);
+
+            try
+            {
+                // get the rows and put them in the return array
+                while (rs.isValidRow())
+                {
+                    Photo aPhoto = new Photo();
+                    int i = 0;
+                    
+                    // order_id
+                    aPhoto.order_id = (String) rs.getFieldByIndex(i++, (int)ResultSet.FIELD_TYPE_STRING);
+                    // name
+                    aPhoto.name = (String) rs.getFieldByIndex(i++, (int)ResultSet.FIELD_TYPE_STRING);
+                    // label
+                    aPhoto.label = (String) rs.getFieldByIndex(i++, (int)ResultSet.FIELD_TYPE_STRING);
+                    // description
+                    aPhoto.description = (String) rs.getFieldByIndex(i++, (int)ResultSet.FIELD_TYPE_STRING);
+                    // upload_status
+                    Long status_id = (Long)rs.getFieldByIndex(i++, (int)ResultSet.FIELD_TYPE_LONG);
+                    if (status_id != null)
+                    	aPhoto.setUploadStatus(Data.to_PHOTO_STATUS_ID_from(status_id));
+                    else
+                    	aPhoto.setUploadStatus(PHOTO_STATUS_ID.kStatusPhotoUnknown);
+                    // user_id
+                    aPhoto.user_id = (String) rs.getFieldByIndex(i++, (int)ResultSet.FIELD_TYPE_STRING);
+                    // photo_data
+                    aPhoto.photo_data = (String) rs.getFieldByIndex(i++, (int)ResultSet.FIELD_TYPE_STRING);
+                    // thumb_data
+                    aPhoto.thumb_data = (String) rs.getFieldByIndex(i++, (int)ResultSet.FIELD_TYPE_STRING);
+                    // required
+                    //aPhoto.required = (Integer)rs.getFieldByIndex(i++, (int)ResultSet.FIELD_TYPE_INT);
+                    i++;
+                    // question_row
+                    Long question_row = (Long)rs.getFieldByIndex(i++, (int)ResultSet.FIELD_TYPE_LONG);
+                    if (question_row != null)
+                    	aPhoto.question_row = question_row.longValue();
+                    else
+                    	aPhoto.question_row = 0;
+                    // question_id
+                    //aPhoto.setQuestionId((String) rs.getFieldByIndex(i++, (int)ResultSet.FIELD_TYPE_STRING));
+                    i++;
+                    // selected
+                    aPhoto.selected = false;
+                    
+                    photoArray.add(aPhoto);
+                    rs.next();
+                }
+            }
+            catch (Exception e)
+            {
+                AppState.DebugLog(LCAT, String.format("Caught exception in getPhotos: %s", e.getMessage()));
+            }
+            finally
+            {
+                rs.close();
+                AppState.getInstance().getDbController().close();
+            }
+        }
+        catch (Exception exception)
+        {
+        	AppState.ErrorLog(LCAT, String.format("An exception occurred getting Photos: %s", exception.getMessage()));
+        }
+    	AppState.DebugLog(LCAT, String.format("getPhotos found %d photos.", photoArray.size()));
+        return photoArray;
+    }
+
+    public static Photo getPhoto(String name, boolean createIfNeeded)
+    {
+    	Photo aPhoto = null;
+    	try
+        {
+            String sql = "SELECT order_id, name, label, description, upload_status, user_id, photo_data, thumb_data, required, question_row, question_id FROM photos WHERE name = ?";
+            
+            String[] args = {name};
+            ResultSet rs = AppState.getInstance().getDbController().execute(sql, args);
+
+            try
+            {
+                // get the rows and put them in the return array
+                if (rs.isValidRow())
+                {
+                    aPhoto = new Photo();
+                    int i = 0;
+                    
+                    // order_id
+                    aPhoto.order_id = (String) rs.getFieldByIndex(i++, (int)ResultSet.FIELD_TYPE_STRING);
+                    // name
+                    aPhoto.name = (String) rs.getFieldByIndex(i++, (int)ResultSet.FIELD_TYPE_STRING);
+                    // label
+                    aPhoto.label = (String) rs.getFieldByIndex(i++, (int)ResultSet.FIELD_TYPE_STRING);
+                    // description
+                    aPhoto.description = (String) rs.getFieldByIndex(i++, (int)ResultSet.FIELD_TYPE_STRING);
+                    // upload_status
+                    Long status_id = (Long)rs.getFieldByIndex(i++, (int)ResultSet.FIELD_TYPE_LONG);
+                    if (status_id != null)
+                    	aPhoto.setUploadStatus(Data.to_PHOTO_STATUS_ID_from(status_id));
+                    else
+                    	aPhoto.setUploadStatus(PHOTO_STATUS_ID.kStatusPhotoUnknown);
+                    // user_id
+                    aPhoto.user_id = (String) rs.getFieldByIndex(i++, (int)ResultSet.FIELD_TYPE_STRING);
+                    // photo_data
+                    aPhoto.photo_data = (String) rs.getFieldByIndex(i++, (int)ResultSet.FIELD_TYPE_STRING);
+                    // thumb_data
+                    aPhoto.thumb_data = (String) rs.getFieldByIndex(i++, (int)ResultSet.FIELD_TYPE_STRING);
+                    // required
+                    //aPhoto.label.setRequired((Integer)rs.getFieldByIndex(i++, (int)ResultSet.FIELD_TYPE_INT));
+                    i++;
+                    // question_row
+                    aPhoto.question_row = (Long)rs.getFieldByIndex(i++, (int)ResultSet.FIELD_TYPE_LONG);
+                    // question_id
+                    //aPhoto.setQuestionId((String) rs.getFieldByIndex(i++, (int)ResultSet.FIELD_TYPE_STRING));
+                    i++;
+                    // selected
+                    aPhoto.selected = false;                    
+                }
+                else
+                {
+                    if (createIfNeeded)
+                    {
+                        aPhoto = new Photo();
+
+                        aPhoto.order_id = Data.NO_LABEL_NAME;
+                        aPhoto.user_id = "";
+                        aPhoto.name = name;
+                        aPhoto.label = Data.NO_LABEL_NAME;
+                        aPhoto.description = "";
+                        aPhoto.photo_data = "";
+                        aPhoto.thumb_data = "";
+                        aPhoto.question_row = 0;
+                        aPhoto.selected = false;
+                    }                	
+                }
+            }
+            catch (Exception e1)
+            {
+            	AppState.ErrorLog(LCAT, String.format("Caught exception in getPhoto: %s", e1.getMessage()));
+            }
+            finally
+            {
+                rs.close();
+                AppState.getInstance().getDbController().close();
+            }
+        }
+        catch (Exception e2)
+        {
+        	AppState.ErrorLog(LCAT, String.format("An exception occurred getting Photo: %s", e2.getMessage()));
+        }
+        return aPhoto;
+    }
+    
+	// remove all photos associated with the given work order tag
+    public static void deleteOrdersForTag(String workOrderTag)
+    {
+    	AppState.DebugLog(LCAT, String.format("deleteOrdersForTag(%s)", workOrderTag));
+    	
+    	try
+        {
+            String deleteWhereClause = "order_id = ?";
+            String[] argsDelete = {workOrderTag};
+
+            // Update the Photos table
+        	long rowsDeleted = AppState.getInstance().getDbController().executeDelete("photos", deleteWhereClause, argsDelete);
+        	AppState.DebugLog(LCAT, String.format("deleteOrdersForTag(%d rows deleted)", rowsDeleted));
+
+        }
+        catch (Exception exception)
+        {
+        	AppState.ErrorLog(LCAT, String.format("An exception occurred deleting Photos: %s", exception.getMessage()));
+        }
+    	finally
+    	{
+            AppState.getInstance().getDbController().close();    		
+    	}
+        return;
+    }
+
+    // un-label all photos associated with the given work order tag
+    public static void unlabelOrdersForTag(String workOrderTag)
+    {
+    	AppState.DebugLog(LCAT, String.format("unlabelOrdersForTag(%s)", workOrderTag));
+    	
+    	try
+        {
+            String updateWhereClause = "order_id = ? and upload_status <> ?";
+            Long uploadStatus = PHOTO_STATUS_ID.kStatusPhotoQueued.getValue(); 
+            String[] argsUpdate = {
+            	workOrderTag,
+            	uploadStatus.toString()
+            };
+            ContentValues updateValues = new ContentValues();
+
+            uploadStatus = PHOTO_STATUS_ID.kStatusPhotoNotReady.getValue();
+            updateValues.put("upload_status", uploadStatus);
+            updateValues.put("label", Data.NO_LABEL_NAME);
+            updateValues.put("order_id", Data.NO_LABEL_NAME);
+            updateValues.put("question_id", PhotoLabel.labelAsInt(Data.NO_LABEL_NAME));
+
+            // Update the Photos table
+        	long rowsUpdated = AppState.getInstance().getDbController().executeUpdate("photos", updateValues, updateWhereClause, argsUpdate);
+        	AppState.DebugLog(LCAT, String.format("unlabelOrdersForTag(%d rows updated)", rowsUpdated));
+
+        }
+        catch (Exception exception)
+        {
+        	AppState.ErrorLog(LCAT, String.format("An exception occurred updating Photos: %s", exception.getMessage()));
+        }
+    	finally
+    	{
+            AppState.getInstance().getDbController().close();    		
+    	}
+        return;
+    }
+}

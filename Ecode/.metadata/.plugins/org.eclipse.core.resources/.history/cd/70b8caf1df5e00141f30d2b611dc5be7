@@ -1,0 +1,39 @@
+package com.phmod.model;
+
+import java.util.*;
+import java.math.BigInteger;
+import java.text.SimpleDateFormat;
+
+import android.content.Context;
+import android.provider.Settings.Secure;
+import android.util.Base64;
+
+public class UniqueID {
+
+	private static Context context;
+	private static String androidID;
+
+	public UniqueID () {
+		setAndroidID();
+	}
+
+	private static String getmonthDay() {
+		Date dateNow = new Date();
+		SimpleDateFormat ft = new SimpleDateFormat("MMDDYY");
+		return ft.format(dateNow);
+	}
+
+	private static long getUnixTime(Context context) {
+		return System.currentTimeMillis() / 1000;
+	}
+	
+	private void setAndroidID() {
+		UniqueID.androidID = Secure.getString(context.getContentResolver(), Secure.ANDROID_ID);
+	}
+	
+	public static String getUniqueID() {
+		String result = getmonthDay() + new BigInteger(Base64.decode(androidID, 0)).intValue() + getUnixTime(context);
+		return result;
+	}
+	
+}
