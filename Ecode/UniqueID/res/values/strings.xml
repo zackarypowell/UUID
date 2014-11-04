@@ -5,8 +5,8 @@
     <string name="hello_world">Hello world!</string>
     <string name="action_settings">Settings</string>
     <string name="UniqueID">txtUniqueID </string>
-    <string name="Display Unique ID">btnDisplayID</string>
-    <string name="Android ID">btnAndroidID</string>
+    <string name="Display_Unique_ID">btnDisplayID</string>
+    <string name="Android_ID">btnAndroidID</string>
     <string name="AndroidID">txtAndroidID</string>
     <string name="display_id">Display ID</string>
 

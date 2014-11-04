@@ -15,7 +15,7 @@
         android:layout_alignParentTop="true"
         android:layout_centerHorizontal="true"
         android:layout_marginTop="42dp"
-        android:text="@string/Android ID" />
+        android:text="@string/Android_ID" />
 
     <Button
         android:id="@+id/btnDisplayID"
