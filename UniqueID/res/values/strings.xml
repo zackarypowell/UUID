@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <string name="app_name">UniqueID</string>
+    <string name="hello_world">Hello world!</string>
+    <string name="action_settings">Settings</string>
+    <string name="UniqueID">txtUniqueID </string>
+    <string name="Display_Unique_ID">btnDisplayID</string>
+    <string name="Android_ID">btnAndroidID</string>
+    <string name="AndroidID">txtAndroidID</string>
+    <string name="display_id">Display ID</string>
+
+</resources>
