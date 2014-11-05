@@ -47,8 +47,6 @@ public class MainActivity extends Activity {
 			
 		});
 		
-		
-		
 		b.setOnClickListener(new OnClickListener() {
 			
 			@Override
@@ -63,12 +61,6 @@ public class MainActivity extends Activity {
 				unique.setText(last4AndroidID);
 				
 			}
-			
-			
-			
-			
-			
-			
 		});
 		
 		
